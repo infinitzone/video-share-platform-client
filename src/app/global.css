@@ -16,6 +16,7 @@
 
   /* Main */
   --color-default: #000;
+  --color-canvas-subtle-blur: #0a0a0ad5;
 
   /* Foreground */
   --color-fg-default: #ffffff;
@@ -128,6 +129,7 @@
   --color-canvas-elevated: #ffffff;
 
   --color-default: #fff;
+  --color-canvas-subtle-blur: #f1f1f3d5;
 
   --color-fg-default: #0b0b0e;
   --color-fg-muted: #52525b;
@@ -2119,7 +2121,7 @@ body {
 }
 .glow-effect-3{
   z-index: 1;
-  width: 60%;
+  width: 75%;
   height: 20%;
   top: -20px;
   left: 40%;
@@ -2150,17 +2152,40 @@ body {
 }
 .glow-effect-6{
   z-index: 2;
-  width: 30%;
-  height: 80px;
-  top: 90%;
-  left: 55%;
-  border-radius: 10px;
-  background-color: var(--glow-color);
+  width: 320px;
+  height: 120px;
+  top: 85%;
+  left: 35%;
+  border-radius: 50px;
+  background-color: var(--glow-color-3);
   filter: blur(80px);
   opacity: .4;
 }
+.glow-effect-7{
+  z-index: 2;
+  width: 40%;
+  height: 80px;
+  top: 95%;
+  left: 55%;
+  border-radius: 10px;
+  background-color: var(--glow-color-2);
+  filter: blur(50px);
+  opacity: .2;
+}
 
-/* Add comment textarea */
+/* Navbar search container */
+.nav-search-container {
+  border-radius: 50px;
+  height: 45px;
+  padding-left: 8px;
+  background-color: var(--color-canvas-subtle);
+}
+
+.nav-search-container:focus-within {
+  border: 1px solid var(--color-border-hard);
+}
+
+
 /* Add comment textarea */
 .add-comment-textarea {
   background-color: transparent;
@@ -2185,6 +2210,12 @@ body {
 /* Navbar right aside bar */
 .navbar-menu {
   border-left: 1px solid var(--color-border-subtle);
+}
+
+/* Navbar use blur */
+.nav-use-blur {
+  background-color: var(--color-canvas-subtle-blur);
+  backdrop-filter: blur(20px);
 }
 
 /* ---------- Responsive ---------- */

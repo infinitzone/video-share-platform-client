@@ -10,9 +10,10 @@ const AVATAR =
 // Define the prop type
 interface HomeProps {
   bg?: string; // optional Tailwind background class, e.g. "bg-transparent", "bg-black/30"
+  customClass?: string;
 }
 
-export default function Navbar({ bg }: HomeProps) {
+export default function Navbar({ bg, customClass }: HomeProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
@@ -22,7 +23,8 @@ export default function Navbar({ bg }: HomeProps) {
         className={`
           fixed top-0 left-0 right-0 z-[100] flex h-header w-full 
           items-center justify-between gap-2 px-4
-          ${bg ?? "bg-canvas-default"}
+          ${bg ?? "bg-canvas-subtle"}
+          ${customClass ?? ""}
         `}  
       >
         {/* Logo */}
@@ -42,14 +44,14 @@ export default function Navbar({ bg }: HomeProps) {
 
         {/* Search */}
         <div className="flex min-w-0 flex-1 justify-center px-2 sm:px-4">
-          <div className="input-group w-full max-w-[500px]">
+          <div className="input-group w-full max-w-[600px] nav-search-container">
             <input
               className="input min-w-0"
               type="search"
               placeholder="Search"
             />
 
-            <span className="input-group-addon" style={{ cursor: "pointer" }}>
+            <span className="input-group-addon" style={{ cursor: "pointer", paddingRight: "20px", paddingLeft: "18px", color: "var(--color-fg-default)", backgroundColor: "var(--color-canvas-overlay )"}}>
               Search
             </span>
           </div>

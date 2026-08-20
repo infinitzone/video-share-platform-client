@@ -8,10 +8,10 @@ import Navbar from "@/components/Navbar";
 import FeedHorizontal from "@/components/FeedHorizontal";
 
 // ---------- Helpers ----------
-function formatViews(views: number): string {
-  if (views >= 1_000_000) return (views / 1_000_000).toFixed(1) + "M views";
-  if (views >= 1_000) return (views / 1_000).toFixed(1) + "K views";
-  return views + " views";
+function formatviews_count(views_count: number): string {
+  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views_count";
+  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views_count";
+  return views_count + " views_count";
 }
 
 // get dominant color from an image URL (works with proxy)
@@ -80,7 +80,7 @@ interface Video {
   duration: number;
   width: number;
   height: number;
-  views: number;
+  views_count: number;
   likes_count: number;
   created_at: string;
 }
@@ -90,17 +90,27 @@ export default function WatchPage() {
   const searchParams = useSearchParams();
   const videoId = searchParams.get("v");
 
-  // Sates
+  // States
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [glowColor, setGlowColor] = useState<string>("rgb(100,100,100)");
+  const [realtimeGlowColors, setRealtimeGlowColors] = useState<{
+    c1: string;
+    c2: string;
+    c3: string;
+  }>({
+    c1: "rgb(100,100,100)",
+    c2: "rgb(100,100,100)",
+    c3: "rgb(100,100,100)",
+  });
   const [colorLoaded, setColorLoaded] = useState(false);
 
-  // navbar background state and ref for the video container ---
+  // navbar background state and ref for the video container & video element ---
   const [navbarBg, setNavbarBg] = useState("bg-transparent");
   const videoContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Comment state
   const [comment, setComment] = useState("");
@@ -120,17 +130,92 @@ export default function WatchPage() {
     getDominantColor(thumbnailUrl)
       .then((color) => {
         setGlowColor(color);
+        setRealtimeGlowColors({ c1: color, c2: color, c3: color });
         setColorLoaded(true);
       })
       .catch(() => {
         setGlowColor("rgba(100,100,100,0.3)");
+        setRealtimeGlowColors({
+          c1: "rgba(100,100,100,0.3)",
+          c2: "rgba(100,100,100,0.3)",
+          c3: "rgba(100,100,100,0.3)",
+        });
       });
   }, [video]);
 
-  // Inside WatchContent.tsx, replace the fetchVideo function
+  // Spatial color sampler engine: extracts 3 distinct region colors across video frames
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 12;
+    canvas.height = 12;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    let animFrameId: number;
+
+    const getRegionAvg = (x: number, y: number, w: number, h: number): string => {
+      const imgData = ctx.getImageData(x, y, w, h).data;
+      let r = 0,
+        g = 0,
+        b = 0,
+        count = 0;
+      for (let i = 0; i < imgData.length; i += 4) {
+        r += imgData[i];
+        g += imgData[i + 1];
+        b += imgData[i + 2];
+        count++;
+      }
+      return `rgb(${Math.round(r / count)}, ${Math.round(g / count)}, ${Math.round(b / count)})`;
+    };
+
+    const processFrame = () => {
+      if (videoEl.paused || videoEl.ended) return;
+
+      try {
+        ctx.drawImage(videoEl, 0, 0, 12, 12);
+
+        // Region 1: Top-Left (6x6)
+        const color1 = getRegionAvg(0, 0, 6, 6);
+        // Region 2: Top-Right / Center (6x6)
+        const color2 = getRegionAvg(6, 0, 6, 6);
+        // Region 3: Bottom Center (6x6)
+        const color3 = getRegionAvg(3, 6, 6, 6);
+
+        setRealtimeGlowColors({
+          c1: color1,
+          c2: color2,
+          c3: color3,
+        });
+      } catch (e) {
+        // Fallback for potential cross-origin restriction
+      }
+
+      if ("requestVideoFrameCallback" in videoEl) {
+        (videoEl as any).requestVideoFrameCallback(processFrame);
+      } else {
+        animFrameId = requestAnimationFrame(processFrame);
+      }
+    };
+
+    const handlePlay = () => processFrame();
+    const handleSeeked = () => processFrame();
+
+    videoEl.addEventListener("play", handlePlay);
+    videoEl.addEventListener("seeked", handleSeeked);
+
+    return () => {
+      videoEl.removeEventListener("play", handlePlay);
+      videoEl.removeEventListener("seeked", handleSeeked);
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+    };
+  }, [loading]);
+
   const fetchVideo = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/video/info?id=${id}`);  // <-- changed
+      const res = await fetch(`/api/video/info?id=${id}`);
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(errText || `HTTP ${res.status}`);
@@ -150,9 +235,7 @@ export default function WatchPage() {
     }
     setLoading(true);
     setError(null);
-    Promise.all([fetchVideo(videoId)]).finally(() =>
-      setLoading(false)
-    );
+    Promise.all([fetchVideo(videoId)]).finally(() => setLoading(false));
   }, [videoId, fetchVideo]);
 
   // --- Scroll effect for navbar background ---
@@ -164,7 +247,6 @@ export default function WatchPage() {
     const handleScroll = () => {
       if (!videoContainerRef.current) return;
       const rect = videoContainerRef.current.getBoundingClientRect();
-      // When the top of the video container reaches the bottom of the navbar
       if (rect.top <= headerHeight) {
         setNavbarBg("bg-canvas-subtle");
       } else {
@@ -184,7 +266,6 @@ export default function WatchPage() {
     };
 
     window.addEventListener("scroll", throttledScroll, { passive: true });
-    // Run once on mount to set initial state
     handleScroll();
 
     return () => {
@@ -250,22 +331,20 @@ export default function WatchPage() {
               {/* Video container with the ref */}
               <div ref={videoContainerRef} className="relative aspect-video">
                 {/* Glow layers */}
-                {/* <div
-                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect"
-                  style={{
-                    "--glow-color": glowColor,
-                  } as React.CSSProperties}
-                /> */}
                 <div
                   className="absolute inset-0 rounded-xl pointer-events-none glow-effect-2"
                   style={{
-                    "--glow-color": glowColor,
+                    "--glow-color": realtimeGlowColors.c1,
+                    "--glow-color-2": realtimeGlowColors.c2,
+                    "--glow-color-3": realtimeGlowColors.c3,
                   } as React.CSSProperties}
                 />
                 <div
                   className="absolute inset-0 rounded-xl pointer-events-none glow-effect-3"
                   style={{
-                    "--glow-color": glowColor,
+                    "--glow-color": realtimeGlowColors.c1,
+                    "--glow-color-2": realtimeGlowColors.c2,
+                    "--glow-color-3": realtimeGlowColors.c3,
                   } as React.CSSProperties}
                 />
                 <div
@@ -283,18 +362,29 @@ export default function WatchPage() {
                 <div
                   className="absolute inset-0 rounded-xl pointer-events-none glow-effect-6"
                   style={{
-                    "--glow-color": glowColor,
+                    "--glow-color": realtimeGlowColors.c1,
+                    "--glow-color-2": realtimeGlowColors.c2,
+                    "--glow-color-3": realtimeGlowColors.c3,
                   } as React.CSSProperties}
                 />
-
+                <div
+                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-7"
+                  style={{
+                    "--glow-color": realtimeGlowColors.c1,
+                    "--glow-color-2": realtimeGlowColors.c2,
+                    "--glow-color-3": realtimeGlowColors.c3,
+                  } as React.CSSProperties}
+                />
 
                 {/* Video player */}
                 <div className="relative z-10 w-full h-full overflow-hidden rounded-none sm:rounded-xl">
                   <video
+                    ref={videoRef}
                     src={videoUrl}
                     controls
                     playsInline
                     preload="metadata"
+                    crossOrigin="anonymous"
                     className="block w-full h-full object-contain bg-black"
                   />
                 </div>
@@ -313,19 +403,19 @@ export default function WatchPage() {
                       {String(video.user_id || "").charAt(0).toUpperCase() || "U"}
                     </div>
                     <div>
-                      <p className="font-medium text-fg-default">{video.user_id}</p>
+                      <p className="font-medium text-fg-default">Hridoy Hosen</p>
                       <p className="text-xs text-fg-muted">
-                        {formatViews(video.views)} • {timeAgo(video.created_at)}
+                        15k subscribers
                       </p>
                     </div>
-                    <button className="btn btn-primary" style={{borderRadius: "50px"}}>
+                    <button className="btn btn-primary" style={{ borderRadius: "50px" }}>
                       Subscribe
                     </button>
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-1">
-                    <button className="btn btn-secondary btn-is" style={{borderRadius: "50px"}}>
+                    <button className="btn btn-secondary btn-is" style={{ borderRadius: "50px" }}>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="18"
@@ -337,7 +427,7 @@ export default function WatchPage() {
                       </svg>
                       <span>{video.likes_count || 0}</span>
                     </button>
-                    <button className="btn btn-secondary btn-is" style={{borderRadius: "50px"}}>
+                    <button className="btn btn-secondary btn-is" style={{ borderRadius: "50px" }}>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="18"
@@ -355,7 +445,7 @@ export default function WatchPage() {
                 {/* Description */}
                 <div className="mt-4 p-3 rounded-xl bg-canvas-subtle text-fg-default text-sm bg-canvas-elevated">
                   <p className="whitespace-pre-wrap">
-                    <span>{video.views} views  ○  {timeAgo(video.created_at)}  </span>{" "}  
+                    <span>{video.views_count | 0} views ○ {timeAgo(video.created_at)} </span>{" "}
                     <span className="text-fg-muted">{video.description || "No description"}</span>
                   </p>
                 </div>
@@ -363,11 +453,8 @@ export default function WatchPage() {
 
               {/* Comments Section */}
               <div className="py-2 border-t border-border-subtle pt-6 px-3 sm:px-0">
-                <h2 className="text-lg font-semibold text-fg-default mb-4">
-                  Comments
-                </h2>
+                <h2 className="text-lg font-semibold text-fg-default mb-4">Comments</h2>
 
-                {/* Comment input – YouTube style */}
                 <div className="flex items-end gap-3 mb-6 mt-4">
                   <textarea
                     className="add-comment-textarea text-base md:text-[1.2rem]"
@@ -378,18 +465,15 @@ export default function WatchPage() {
                   />
                   {hasText && (
                     <button
-                      onClick={() => {
-                        // submit comment
-                      }}
+                      onClick={() => {}}
                       className="btn btn-primary"
-                      style={{borderRadius: "50px"}}
+                      style={{ borderRadius: "50px" }}
                     >
                       Comment
                     </button>
                   )}
                 </div>
 
-                {/* Comments list – clean, no background/border */}
                 <div className="space-y-4 flex flex-col gap-4">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex gap-3">
@@ -406,7 +490,6 @@ export default function WatchPage() {
                         </p>
 
                         <div className="mt-1 flex items-center gap-4">
-                          {/* Comment like */}
                           <div className="flex items-center">
                             <button
                               className="btn btn-ghost flex items-center"
@@ -422,28 +505,19 @@ export default function WatchPage() {
                                 <path d="M720-120H280v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h258q32 0 56 24t24 56v80q0 7-2 15t-4 15L794-168q-9 20-30 34t-44 14Zm-360-80h360l120-280v-80H480l54-220-174 174v406Zm0-406v406-406Zm-80-34v80H160v360h120v80H80v-520h200Z" />
                               </svg>
                             </button>
-
                             <span className="text-sm text-fg-muted">15k</span>
                           </div>
-
-                          {/* Comment reply */}
-                          <button className="btn btn-ghost">
-                            Reply
-                          </button>
+                          <button className="btn btn-ghost">Reply</button>
                         </div>
-
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              {/* END COMMENT SECTION */}
-
             </div>
 
             {/* Right: Related Videos */}
-            <div className="z-10 w-full py-2 lg:w-[30%] lg:flex-shrink-0">
-             {/* Show video feed */}
+            <div className="z-10 w-full py-2 lg:w-[30%] lg:flex-shrink-0" style={{ paddingTop: "0" }}>
               <FeedHorizontal />
             </div>
           </div>

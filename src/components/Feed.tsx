@@ -10,15 +10,15 @@ interface Video {
   title: string;
   thumbnail_path: string;
   user_id: string;
-  views: number;
+  views_count: number;
   duration: number;
   created_at: string;
 }
 
-function formatViews(views: number): string {
-  if (views >= 1_000_000) return (views / 1_000_000).toFixed(1) + "M views";
-  if (views >= 1_000) return (views / 1_000).toFixed(1) + "K views";
-  return views + " views";
+function formatviews_count(views_count: number): string {
+  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views_count";
+  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views_count";
+  return views_count + " views";
 }
 
 function timeAgo(dateString: string): string {
@@ -48,7 +48,15 @@ function formatDuration(seconds: number): string {
 
 function getThumbnailUrl(path: string): string {
   if (!path) return "/placeholder-thumbnail.jpg";
+  
+  // Route absolute localhost paths through the API proxy
+  if (path.startsWith("http://localhost")) {
+    const relativePath = path.replace(/^http:\/\/localhost(:\d+)?/, "");
+    return `/api/thumbnail?path=${encodeURIComponent(relativePath)}`;
+  }
+
   if (path.startsWith("http")) return path;
+  
   return `/api/thumbnail?path=${encodeURIComponent(path)}`;
 }
 
@@ -135,19 +143,19 @@ export default function Feed() {
     );
   }
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
+return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-1 gap-y-4 p-1 sm:p-2">
       {videos.map((video, index) => {
         const isLast = index === videos.length - 1;
         return (
-          <Link key={video.id} href={`/watch?v=${video.id}`} passHref>
+          <Link key={video.id} href={`/watch?v=${video.id}`} passHref className="no-underline text-current">
             <div ref={isLast ? observerRef : null}>
               <VideoCard
                 thumbnail={getThumbnailUrl(video.thumbnail_path)}
                 avatar={String(video.user_id || '').charAt(0).toUpperCase() || "U"}
                 title={video.title}
                 channel={String(video.user_id)}
-                views={formatViews(video.views)}
+                views_count={formatviews_count(video.views_count)}
                 published={timeAgo(video.created_at)}
                 duration={formatDuration(video.duration)}
               />

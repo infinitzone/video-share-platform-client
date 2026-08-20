@@ -33,7 +33,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-canvas-subtle text-fg-default">
-      <Navbar bg={"bg-canvas-subtle"} />
+      <Navbar customClass="nav-use-blur" />
 
       <aside
         className={`fixed left-0 top-[var(--header-height)] z-40 h-[calc(100vh-var(--header-height))] w-64 border-r border-border-default bg-canvas-subtle transition-transform duration-fast ease-out-expo lg:translate-x-0 ${
@@ -108,8 +108,9 @@ export default function Home() {
       </button>
 
       <main className="lg:ml-64 pt-[var(--header-height)]">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mt-4 lg:ml-5">
-          <Feed/>
+        {/* Removed the extra grid wrapper here to let <Feed /> handle the layout */}
+        <div className="mt-4 max-w-[2200px] mx-auto">
+          <Feed />
         </div>
       </main>
     </div>

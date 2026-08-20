@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
     ],
     localPatterns: [
       {
+        pathname: "**"
+      },
+      {
         pathname: '/logo/**',
       },
       {

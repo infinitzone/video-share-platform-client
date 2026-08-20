@@ -6,17 +6,28 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing path', { status: 400 });
   }
 
-  const THUMBNAIL_API = process.env.THUMBNAIL_API || 'http://localhost';
-  const url = `${THUMBNAIL_API}${path}`;
+  // Strip host prefix if full localhost URL was passed in
+  const relativePath = path.replace(/^http:\/\/localhost(:\d+)?/, '');
+  const baseUrl = (process.env.THUMBNAIL_API || 'http://localhost').replace(/\/$/, '');
+  const url = `${baseUrl}${relativePath.startsWith('/') ? '' : '/'}${relativePath}`;
 
   try {
     const response = await fetch(url);
-    const headers = new Headers(response.headers);
-    headers.set('Access-Control-Allow-Origin', '*');
+    if (!response.ok) {
+      return new NextResponse('Thumbnail not found', { status: response.status });
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
     const body = await response.arrayBuffer();
+
+    // Do NOT pass response.headers directly; construct clean headers
     return new NextResponse(body, {
-      status: response.status,
-      headers,
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+      },
     });
   } catch {
     return new NextResponse('Failed to fetch thumbnail', { status: 500 });

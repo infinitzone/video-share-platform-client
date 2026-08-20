@@ -10,16 +10,17 @@ interface Video {
   title: string;
   thumbnail_path: string;
   user_id: string;
-  views: number;
+  avatar: string;
+  views_count: number;
   duration: number;
   created_at: string;
 }
 
-// ----- helper functions (copy from your Feed.tsx) -----
-function formatViews(views: number): string {
-  if (views >= 1_000_000) return (views / 1_000_000).toFixed(1) + "M views";
-  if (views >= 1_000) return (views / 1_000).toFixed(1) + "K views";
-  return views + " views";
+// ----- helper functions (kept exactly the same) -----
+function formatviews_count(views_count: number): string {
+  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views_count";
+  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views_count";
+  return views_count + " views";
 }
 
 function timeAgo(dateString: string): string {
@@ -138,17 +139,19 @@ export default function FeedHorizontal() {
   }
 
   return (
-    <div className="flex flex-col gap-2 p-4">
+    // Replaced generic p-4 with tight margins to match watch sidebar
+    <div className="flex flex-col gap-1 pr-2 pb-6">
       {videos.map((video, index) => {
         const isLast = index === videos.length - 1;
         return (
-          <Link key={video.id} href={`/watch?v=${video.id}`} passHref>
+          <Link key={video.id} href={`/watch?v=${video.id}`} passHref className="no-underline text-current">
             <div ref={isLast ? observerRef : null}>
               <VideoCardHorizontal
                 thumbnail={getThumbnailUrl(video.thumbnail_path)}
                 title={video.title}
                 channel={String(video.user_id)}
-                views={formatViews(video.views)}
+                avatar={video.avatar}
+                views_count={formatviews_count(video.views_count)}
                 published={timeAgo(video.created_at)}
                 duration={formatDuration(video.duration)}
               />
