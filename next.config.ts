@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
       {
         protocol: 'http',
         hostname: 'localhost',
-        port: '4444',          // your backend port
+        port: '4444',
         pathname: '/**',
       },
       {
@@ -20,6 +20,14 @@ const nextConfig: NextConfig = {
         hostname: 'encrypted-tbn0.gstatic.com',
         port: '',
         pathname: '/**',
+      },
+    ],
+    localPatterns: [
+      {
+        pathname: '/logo/**',
+      },
+      {
+        pathname: '/api/thumbnail/**',
       },
     ],
     dangerouslyAllowLocalIP: true,

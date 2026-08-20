@@ -25,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       className={`${roboto.variable} ${robotoMono.variable} h-full antialiased`}
+      suppressHydrationWarning={true}
     >
       <body className="min-h-full flex flex-col bg-canvas-default text-fg-default">
         {children}

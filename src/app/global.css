@@ -14,6 +14,9 @@
   --color-canvas-overlay: #111111;
   --color-canvas-elevated: #161616;
 
+  /* Main */
+  --color-default: #000;
+
   /* Foreground */
   --color-fg-default: #ffffff;
   --color-fg-muted: #a1a1aa;
@@ -81,6 +84,7 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.80);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.85);
   --shadow-xl: 0 16px 56px rgba(0, 0, 0, 0.92);
+  --inner-shadow: rgba(255, 255, 255, 0.1 );
 
   /* Radius */
   --radius-1: 4px;
@@ -122,6 +126,8 @@
   --color-canvas-subtle: #f1f1f3;
   --color-canvas-overlay: #f8f8fa;
   --color-canvas-elevated: #ffffff;
+
+  --color-default: #fff;
 
   --color-fg-default: #0b0b0e;
   --color-fg-muted: #52525b;
@@ -177,6 +183,7 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.10);
   --shadow-xl: 0 16px 56px rgba(0, 0, 0, 0.12);
+  --iner-shadow: rgba(0, 0, 0, 0.1);
 }
 
 /* ---------- Reset & Base ---------- */
@@ -774,7 +781,7 @@ body {
 
 .btn-primary {
   background: var(--color-fg-default);
-  color: var(--color-fg-subtle);
+  color: var(--color-default);
 }
 .btn-primary:hover {
   background: var(--color-fg-muted);
@@ -876,6 +883,9 @@ body {
 }
 .btn-group .btn:not(:first-child) {
   border-left: 1px solid var(--color-border-subtle);
+}
+.btn-is {
+  box-shadow: inset 0 0 18px var(--inner-shadow);
 }
 
 /* Badges */
@@ -2075,6 +2085,106 @@ body {
   display: inline-block;
   width: 0.8rem;
   flex-shrink: 0;
+}
+
+/* ---------- Glow effect --------- */
+.glow-effect {
+  box-shadow:
+    /* — BASE (keeps bottom and all sides as original) — */
+    0 0 100px var(--glow-color),
+    0 0 160px var(--glow-color),
+    0 0 100px var(--glow-color),
+
+    /* — TOP (adjust Y offset and blur) — */
+    0 -60px 100px var(--glow-color),
+    0 -100px 160px var(--glow-color),
+
+    /* — RIGHT (adjust X offset, blur, and spread for extra area) — */
+    80px 0 120px 20px var(--glow-color),   /* small extra area */
+    160px 0 200px 60px var(--glow-color),  /* medium extra area */
+    460px 0 300px 500px var(--glow-color); /* huge extra area */
+
+  opacity: 0.09;
+  filter: blur(50px);
+}
+.glow-effect-2{
+  z-index: 1;
+  width: 25%;
+  height: 70%;
+  top: -20px;
+  left: 3%;
+  background-color: var(--glow-color);
+  filter: blur(150px);
+  opacity: .6;
+}
+.glow-effect-3{
+  z-index: 1;
+  width: 60%;
+  height: 20%;
+  top: -20px;
+  left: 40%;
+  background-color: var(--glow-color);
+  filter: blur(150px);
+  opacity: .6;
+}
+.glow-effect-4{
+  z-index: 2;
+  width: 100%;
+  height: 5%;
+  top: 90%;
+  left: 0;
+  background-color: #fff;
+  filter: blur(60px);
+  opacity: .7;
+}
+.glow-effect-5{
+  z-index: 2;
+  width: 150px;
+  height: 120px;
+  top: 100%;
+  left: 1%;
+  border-radius: 50px;
+  background-color: #fff;
+  filter: blur(50px);
+  opacity: 0.05;
+}
+.glow-effect-6{
+  z-index: 2;
+  width: 30%;
+  height: 80px;
+  top: 90%;
+  left: 55%;
+  border-radius: 10px;
+  background-color: var(--glow-color);
+  filter: blur(80px);
+  opacity: .4;
+}
+
+/* Add comment textarea */
+/* Add comment textarea */
+.add-comment-textarea {
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  width: 100%;
+  color: var(--color-fg-default);
+  max-height: 160px;
+  padding-bottom: 5px;
+  field-sizing: content;
+  font-family: var(--font-sans  );
+  transition: border-color 0.2s;
+}
+
+.add-comment-textarea:focus {
+  border-bottom-color: var(--color-fg-on-emphasis);
+}
+
+/* Navbar right aside bar */
+.navbar-menu {
+  border-left: 1px solid var(--color-border-subtle);
 }
 
 /* ---------- Responsive ---------- */

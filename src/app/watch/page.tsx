@@ -1,28 +1,18 @@
-"use client";
-
-import { useSearchParams } from "next/navigation";
+// app/watch/page.tsx
+import { Suspense } from "react";
+import WatchContent from "./WatchContent";
 
 export default function WatchPage() {
-  const searchParams = useSearchParams();
-  const videoId = searchParams.get("v");
-
-  const getVideoUrl = (id: string): string => {
-    return `http://localhost/watch/${id}`;
-  };
-
-  if (!videoId) {
-    return <p>No video ID provided.</p>;
-  }
-
   return (
-    <div>
-
-      <video
-        src={getVideoUrl(videoId)}
-        controls
-        playsInline
-        preload="metadata"
-      />
-    </div>
+    <Suspense fallback={
+      <div className="min-h-screen bg-canvas-default text-fg-default">
+        {/* Optional: show a loading skeleton */}
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+        </div>
+      </div>
+    }>
+      <WatchContent />
+    </Suspense>
   );
-}   
+}
