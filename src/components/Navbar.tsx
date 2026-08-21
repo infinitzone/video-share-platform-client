@@ -59,10 +59,6 @@ export default function Navbar({ bg, customClass }: HomeProps) {
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-3">
-          {/* Desktop theme */}
-          <div className="hidden sm:block">
-            <ToggleTheme />
-          </div>
 
           {/* Avatar */}
           <button

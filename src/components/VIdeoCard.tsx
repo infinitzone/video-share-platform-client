@@ -1,3 +1,4 @@
+// src/components/VideoCard.tsx
 "use client";
 import Image from "next/image";
 import { useState, useEffect } from "react";
@@ -6,8 +7,9 @@ type VideoCardProps = {
   thumbnail: string;
   avatar: string;
   title: string;
-  channel: string;
+  channelName: string;
   views_count: string;
+  isVerified: boolean;
   published: string;
   duration: string;
 };
@@ -16,8 +18,9 @@ export default function VideoCard({
   thumbnail,
   avatar,
   title,
-  channel,
+  channelName,
   views_count,
+  isVerified,
   published,
   duration,
 }: VideoCardProps) {
@@ -26,7 +29,6 @@ export default function VideoCard({
   useEffect(() => {
     if (!thumbnail) return;
     
-    // Create an image object to extract the dominant/average color
     const img = new window.Image();
     img.crossOrigin = "Anonymous"; 
     img.src = thumbnail;
@@ -41,11 +43,9 @@ export default function VideoCard({
         if (ctx) {
           ctx.drawImage(img, 0, 0, 1, 1);
           const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-          // Apply a vertical gradient background using the extracted color
           setHoverBg(`linear-gradient(180deg, rgba(${r},${g},${b},0.15) 0%, rgba(${r},${g},${b},0.05) 100%)`);
         }
       } catch (e) {
-        // Fallback for strict CORS environments
         setHoverBg("rgba(255, 255, 255, 0.05)");
       }
     };
@@ -75,25 +75,42 @@ export default function VideoCard({
       </div>
       
       {/* Information Row */}
-      <div className="flex gap-3 pr-6 z-10">
-        {/* Avatar */}
+      <div className="flex flex-col gap-2 pr-2 z-10">
+        {/* Video title */}
+        <h3 className="line-clamp-2 text-base font-semibold text-fg-default leading-snug">
+            {title}
+        </h3>
+
+      {/* Channel avatar */}
+        <div className="flex gap-2 items-center min-w-0">
         <div className="flex-shrink-0 mt-0.5">
           <div className="avatar">
-            {avatar}
+            <Image
+              src={avatar}
+              alt={channelName}
+              fill
+              className="object-cover"
+            />
           </div>
         </div>
-        
-        {/* Text Details */}
-        <div className="flex flex-col min-w-0">
-          <h3 className="line-clamp-2 text-base text-fg-default">
-            {title}
-          </h3>
-          <p className="text-sm text-fg-muted transition-colors">
-            {channel}
+        {/* Channel text details */}
+        <div className="">
+          <p className="text-sm text-fg-muted hover:text-fg-default transition-colors flex items-center gap-1 mt-1">
+            <span className="truncate">{channelName}</span>
+            {isVerified && (
+              <svg
+                className="w-3.5 h-3.5 text-accent fill-current flex-shrink-0"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+            )}
           </p>
           <p className="text-sm text-fg-muted">
             {views_count} • {published}
           </p>
+        </div>
+
         </div>
       </div>
     </article>

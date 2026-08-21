@@ -6,9 +6,10 @@ import { useState, useEffect } from "react";
 type VideoCardProps = {
   thumbnail: string;
   title: string;
-  channel: string;
+  channelName: string;
   avatar: string;
   views_count: string;
+  isVerified: boolean;
   published: string;
   duration: string;
 };
@@ -16,9 +17,10 @@ type VideoCardProps = {
 export default function VideoCardHorizontal({
   thumbnail,
   title,
-  channel,
+  channelName,
   avatar,
   views_count,
+  isVerified,
   published,
   duration,
 }: VideoCardProps) {
@@ -89,7 +91,7 @@ export default function VideoCardHorizontal({
           <div className="flex items-center gap-2 mt-2">
             <div className="avatar avatar-sm">{avatar}</div>
             <p className="text-[12px] text-fg-muted truncate hover:text-fg-default transition-colors">
-              {channel}
+              {channelName}
             </p>
           </div>
         </div>

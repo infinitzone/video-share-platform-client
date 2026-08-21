@@ -5,21 +5,30 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import VideoCardHorizontal from "@/components/VideoCardHorizontal";
 
+interface Channel {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_path: string | null;
+  is_verified: boolean;
+  sub_count: number;
+}
+
 interface Video {
   id: string;
   title: string;
   thumbnail_path: string;
-  user_id: string;
-  avatar: string;
+  user_id: number;
   views_count: number;
   duration: number;
   created_at: string;
+  channel?: Channel;
 }
 
-// ----- helper functions (kept exactly the same) -----
+// Helper functions kept intact
 function formatviews_count(views_count: number): string {
-  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views_count";
-  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views_count";
+  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views";
+  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views";
   return views_count + " views";
 }
 
@@ -53,7 +62,6 @@ function getThumbnailUrl(path: string): string {
   if (path.startsWith("http")) return path;
   return `/api/thumbnail?path=${encodeURIComponent(path)}`;
 }
-// -----------------------------------------------
 
 export default function FeedHorizontal() {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -89,12 +97,10 @@ export default function FeedHorizontal() {
     }
   }, []);
 
-  // Initial load
   useEffect(() => {
     fetchVideos();
   }, [fetchVideos]);
 
-  // Observer for infinite scroll
   useEffect(() => {
     if (!observerRef.current || !hasMore || loadingMore || loading) return;
 
@@ -139,7 +145,6 @@ export default function FeedHorizontal() {
   }
 
   return (
-    // Replaced generic p-4 with tight margins to match watch sidebar
     <div className="flex flex-col gap-1 pr-2 pb-6">
       {videos.map((video, index) => {
         const isLast = index === videos.length - 1;
@@ -149,8 +154,9 @@ export default function FeedHorizontal() {
               <VideoCardHorizontal
                 thumbnail={getThumbnailUrl(video.thumbnail_path)}
                 title={video.title}
-                channel={String(video.user_id)}
-                avatar={video.avatar}
+                channelName={video.channel?.display_name || video.channel?.username || `User ${video.user_id}`}
+                avatar={video.channel?.avatar_path || "/placeholder-avatar.png"}
+                isVerified={video.channel?.is_verified ?? false}
                 views_count={formatviews_count(video.views_count)}
                 published={timeAgo(video.created_at)}
                 duration={formatDuration(video.duration)}

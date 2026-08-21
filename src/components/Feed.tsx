@@ -2,22 +2,32 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import VideoCard from "@/components/VIdeoCard";
+import VideoCard from "./VIdeoCard";
 import Link from "next/link";
+
+interface Channel {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_path: string | null;
+  is_verified: boolean;
+  sub_count: number;
+}
 
 interface Video {
   id: string;
   title: string;
   thumbnail_path: string;
-  user_id: string;
+  user_id: number;
   views_count: number;
   duration: number;
   created_at: string;
+  channel?: Channel;
 }
 
 function formatviews_count(views_count: number): string {
-  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views_count";
-  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views_count";
+  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views";
+  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views";
   return views_count + " views";
 }
 
@@ -49,7 +59,6 @@ function formatDuration(seconds: number): string {
 function getThumbnailUrl(path: string): string {
   if (!path) return "/placeholder-thumbnail.jpg";
   
-  // Route absolute localhost paths through the API proxy
   if (path.startsWith("http://localhost")) {
     const relativePath = path.replace(/^http:\/\/localhost(:\d+)?/, "");
     return `/api/thumbnail?path=${encodeURIComponent(relativePath)}`;
@@ -57,6 +66,12 @@ function getThumbnailUrl(path: string): string {
 
   if (path.startsWith("http")) return path;
   
+  return `/api/thumbnail?path=${encodeURIComponent(path)}`;
+}
+
+function getAvatarUrl(path: string | null | undefined): string {
+  if (!path) return "/placeholder-avatar.png";
+  if (path.startsWith("http")) return path;
   return `/api/thumbnail?path=${encodeURIComponent(path)}`;
 }
 
@@ -94,12 +109,10 @@ export default function Feed() {
     }
   }, []);
 
-  // Initial load
   useEffect(() => {
     fetchVideos();
   }, [fetchVideos]);
 
-  // Observer for infinite scroll
   useEffect(() => {
     if (!observerRef.current || !hasMore || loadingMore || loading) return;
 
@@ -143,7 +156,7 @@ export default function Feed() {
     );
   }
 
-return (
+  return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-1 gap-y-4 p-1 sm:p-2">
       {videos.map((video, index) => {
         const isLast = index === videos.length - 1;
@@ -152,9 +165,10 @@ return (
             <div ref={isLast ? observerRef : null}>
               <VideoCard
                 thumbnail={getThumbnailUrl(video.thumbnail_path)}
-                avatar={String(video.user_id || '').charAt(0).toUpperCase() || "U"}
+                avatar={getAvatarUrl(video.channel?.avatar_path)}
                 title={video.title}
-                channel={String(video.user_id)}
+                isVerified={video.channel?.is_verified ?? false}
+                channelName={video.channel?.display_name || video.channel?.username || `User ${video.user_id}`}
                 views_count={formatviews_count(video.views_count)}
                 published={timeAgo(video.created_at)}
                 duration={formatDuration(video.duration)}
