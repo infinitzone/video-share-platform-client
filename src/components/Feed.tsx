@@ -148,7 +148,7 @@ export default function Feed() {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-1 gap-y-4 p-1 sm:p-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-1 gap-y-4">
       {videos.map((video, index) => {
         const isLast = index === videos.length - 1;
         return (

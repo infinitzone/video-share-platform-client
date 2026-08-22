@@ -40,7 +40,7 @@ export default function Home() {
           isCollapsed ? "lg:ml-16" : "lg:ml-64"
         }`}
       >
-        <div className="mt-4 max-w-[2200px] mx-auto px-4">
+        <div className="mt-4 max-w-[2200px] md:px-4">
           <Feed />
         </div>
       </main>
