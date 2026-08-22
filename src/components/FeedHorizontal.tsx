@@ -146,25 +146,38 @@ export default function FeedHorizontal() {
 
   return (
     <div className="flex flex-col gap-1 pr-2 pb-6">
-      {videos.map((video, index) => {
-        const isLast = index === videos.length - 1;
-        return (
-          <Link key={video.id} href={`/watch?v=${video.id}`} passHref className="no-underline text-current">
-            <div ref={isLast ? observerRef : null}>
-              <VideoCardHorizontal
-                thumbnail={getThumbnailUrl(video.thumbnail_path)}
-                title={video.title}
-                channelName={video.channel?.display_name || video.channel?.username || `User ${video.user_id}`}
-                avatar={video.channel?.avatar_path || "/placeholder-avatar.png"}
-                isVerified={video.channel?.is_verified ?? false}
-                views_count={formatviews_count(video.views_count)}
-                published={timeAgo(video.created_at)}
-                duration={formatDuration(video.duration)}
-              />
-            </div>
-          </Link>
-        );
-      })}
+      {/* Grid container placed OUTSIDE the map loop */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+        {videos.map((video, index) => {
+          const isLast = index === videos.length - 1;
+          return (
+            <Link
+              key={video.id}
+              href={`/watch?v=${video.id}`}
+              passHref
+              className="no-underline text-current"
+            >
+              <div ref={isLast ? observerRef : null}>
+                <VideoCardHorizontal
+                  thumbnail={getThumbnailUrl(video.thumbnail_path)}
+                  title={video.title}
+                  channelName={
+                    video.channel?.display_name ||
+                    video.channel?.username ||
+                    `User ${video.user_id}`
+                  }
+                  avatar={video.channel?.avatar_path || "/placeholder-avatar.png"}
+                  isVerified={video.channel?.is_verified ?? false}
+                  views_count={formatviews_count(video.views_count)}
+                  published={timeAgo(video.created_at)}
+                  duration={formatDuration(video.duration)}
+                />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
       {loadingMore && (
         <div className="flex justify-center py-4">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>

@@ -2218,7 +2218,25 @@ body {
   backdrop-filter: blur(20px);
 }
 
+/* See more description expand collaps */
+.seeMore {
+  padding: 0px !important;
+  background-color: transparent !important;
+  border: none;
+  transition: 0.3s ease;
+  cursor: pointer;
+}
+
 /* ---------- Responsive ---------- */
+@media (max-width: 1530px) {
+  .horizontal-video-card-flex-col {
+    flex-direction: column !important;
+  }
+  .horizontal-video-card-thumbnail-full{
+    width: 100% !important;
+  }
+}
+
 @media (max-width: 1024px) {
   .app-header .search-wrap {
     max-width: 280px;

@@ -1,4 +1,3 @@
-// app/watch/page.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -6,15 +5,25 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import FeedHorizontal from "@/components/FeedHorizontal";
+import { auth } from "@/lib/auth";
+
+// Blob serve api
+const AVATAR_API = process.env.AVATAR_API || "http://localhost";
 
 // ---------- Helpers ----------
-function formatviews_count(views_count: number): string {
-  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views_count";
-  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views_count";
-  return views_count + " views_count";
+function formatSubCount(subCount: number): string {
+  if (!subCount) return "0 subscribers";
+  if (subCount >= 1_000_000) return (subCount / 1_000_000).toFixed(1) + "M subscribers";
+  if (subCount >= 1_000) return (subCount / 1_000).toFixed(1) + "K subscribers";
+  return subCount + " subscribers";
 }
 
-// get dominant color from an image URL (works with proxy)
+function formatviews_count(views_count: number): string {
+  if (views_count >= 1_000_000) return (views_count / 1_000_000).toFixed(1) + "M views";
+  if (views_count >= 1_000) return (views_count / 1_000).toFixed(1) + "K views";
+  return views_count + " views";
+}
+
 function getDominantColor(imageUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -85,15 +94,71 @@ interface Video {
   created_at: string;
 }
 
+interface UserProfile {
+  id: number;
+  username: string;
+  display_name: string;
+  bio: string;
+  avatar_path: string;
+  role: string;
+  is_verified: number;
+  sub_count: number;
+  created_at: string;
+}
+
+interface CommentUser {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_path: string | null;
+}
+
+interface CommentItem {
+  id: string;
+  video_id: string;
+  comment: string;
+  created_at: string;
+  updated_at: string | null;
+  user: CommentUser;
+}
+
 // ---------- Main Component ----------
 export default function WatchPage() {
   const searchParams = useSearchParams();
   const videoId = searchParams.get("v");
 
-  // States
+  // Video and Channel States
   const [video, setVideo] = useState<Video | null>(null);
+  const [channel, setChannel] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Authenticated user tracking
+  const authUser = auth.getUser?.() as
+    | { id?: string | number; username?: string; display_name?: string; avatar_path?: string }
+    | null;
+
+  // Interactive Action States
+  const [isLiked, setIsLiked] = useState<boolean>(false);
+  const [likesCount, setLikesCount] = useState<number>(0);
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
+  const [isOwnChannel, setIsOwnChannel] = useState<boolean>(false);
+  const [subCount, setSubCount] = useState<number>(0);
+  const [submittingComment, setSubmittingComment] = useState<boolean>(false);
+
+  // When is being processing action
+  const [isLiking, setIsLiking] = useState<boolean>(false);
+  const [isSubscribing, setIsSubscribing] = useState<boolean>(false);
+
+  // Description toggle state
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState<boolean>(false);
+
+  // Comments & Infinite Scroll States
+  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [loadingComments, setLoadingComments] = useState<boolean>(false);
+  const observerTarget = useRef<HTMLDivElement | null>(null);
 
   const [glowColor, setGlowColor] = useState<string>("rgb(100,100,100)");
   const [realtimeGlowColors, setRealtimeGlowColors] = useState<{
@@ -105,25 +170,172 @@ export default function WatchPage() {
     c2: "rgb(100,100,100)",
     c3: "rgb(100,100,100)",
   });
-  const [colorLoaded, setColorLoaded] = useState(false);
 
-  // navbar background state and ref for the video container & video element ---
   const [navbarBg, setNavbarBg] = useState("bg-transparent");
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const viewRecordedRef = useRef<boolean>(false);
 
-  // Comment state
-  const [comment, setComment] = useState("");
-  const hasText = comment.trim().length > 0;
+  const [commentInput, setCommentInput] = useState("");
+  const hasText = commentInput.trim().length > 0;
 
-  // Helper: full thumbnail URL – now uses a proxy to avoid CORS
   const getThumbnailUrl = (path: string): string => {
     if (!path) return "/placeholder-thumbnail.jpg";
     if (path.startsWith("http")) return path;
     return `/api/thumbnail?path=${encodeURIComponent(path)}`;
   };
 
-  // Extract dominant colour from thumbnail when video loads
+  const getAuthHeader = (): Record<string, string> => {
+    const token = auth.getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  // Fetch Current User's Specific Video Interaction Status
+  const fetchUserActivityStatus = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/video/activity/status?videoId=${id}`, {
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setIsLiked(Boolean(data.isLiked));
+      setIsSubscribed(Boolean(data.isSubscribed));
+      setIsOwnChannel(Boolean(data.isOwnChannel));
+    } catch (err) {
+      console.error("Failed to fetch user activity status:", err);
+    }
+  }, []);
+
+  // Action: Record Video View (with UI update)
+  const handleRecordView = async () => {
+    if (!videoId || viewRecordedRef.current) return;
+    viewRecordedRef.current = true;
+    try {
+      const res = await fetch("/api/video/activity/view", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ videoId }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.counted === true) {
+          setVideo((prev) =>
+            prev ? { ...prev, views_count: prev.views_count + 1 } : null
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Failed to record view:", e);
+    }
+  };
+
+  // Action: Toggle Like/Unlike
+  const handleToggleLike = async () => {
+    if (!videoId || isLiking) return; // prevent concurrent clicks
+
+    setIsLiking(true);
+    try {
+      const res = await fetch("/api/video/activity/like", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ videoId }),
+      });
+
+      if (!res.ok) throw new Error("Like toggle failed");
+
+      const newlyLiked = res.status === 201;
+      setIsLiked(newlyLiked);
+      setLikesCount((prev) => (newlyLiked ? prev + 1 : Math.max(0, prev - 1)));
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  // Action: Toggle Subscribe/Unsubscribe
+  const handleToggleSubscribe = async () => {
+    if (!channel?.id || isOwnChannel || isSubscribing) return;
+
+    setIsSubscribing(true);
+    try {
+      const res = await fetch("/api/video/activity/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ userId: Number(channel.id) }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("Subscription request failed:", errData.error || res.statusText);
+        return;
+      }
+
+      const data = await res.json();
+      if (typeof data.subscribed === "boolean") {
+        setIsSubscribed(data.subscribed);
+        setSubCount((prev) => (data.subscribed ? prev + 1 : Math.max(0, prev - 1)));
+      }
+    } catch (err) {
+      console.error("Failed to toggle subscribe:", err);
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
+  // Action: Add Comment
+  const handleAddComment = async () => {
+    if (!videoId || !hasText || submittingComment) return;
+
+    setSubmittingComment(true);
+    const commentText = commentInput.trim();
+
+    try {
+      const res = await fetch("/api/video/activity/comment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ videoId, comment: commentText }),
+      });
+
+      if (!res.ok) throw new Error("Failed to add comment");
+      const data = await res.json();
+
+      const newCommentItem: CommentItem = {
+        id: data.commentId,
+        video_id: videoId,
+        comment: commentText,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+        user: {
+          id: Number(authUser?.id) || 0,
+          username: authUser?.username || "You",
+          display_name: authUser?.display_name || "You",
+          avatar_path: authUser?.avatar_path || null,
+        },
+      };
+
+      setComments((prev) => [newCommentItem, ...prev]);
+      setCommentInput("");
+    } catch (err) {
+      console.error("Failed to post comment:", err);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
   useEffect(() => {
     if (!video) return;
     const thumbnailUrl = getThumbnailUrl(video.thumbnail_path);
@@ -131,7 +343,6 @@ export default function WatchPage() {
       .then((color) => {
         setGlowColor(color);
         setRealtimeGlowColors({ c1: color, c2: color, c3: color });
-        setColorLoaded(true);
       })
       .catch(() => {
         setGlowColor("rgba(100,100,100,0.3)");
@@ -143,7 +354,68 @@ export default function WatchPage() {
       });
   }, [video]);
 
-  // Spatial color sampler engine: extracts 3 distinct region colors across video frames
+  // Fetch Comments Function
+  const fetchComments = useCallback(
+    async (isInitial = false) => {
+      if (!videoId || loadingComments || (!hasMore && !isInitial)) return;
+
+      setLoadingComments(true);
+      try {
+        const cursorToUse = isInitial ? "" : nextCursor || "";
+        const url = `/api/comments?video_id=${videoId}&limit=20${
+          cursorToUse ? `&cursor=${encodeURIComponent(cursorToUse)}` : ""
+        }`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to load comments");
+
+        const data = await res.json();
+
+        setComments((prev) =>
+          isInitial ? data.comments : [...prev, ...data.comments]
+        );
+        setNextCursor(data.nextCursor);
+        setHasMore(data.hasMore);
+      } catch (err) {
+        console.error("Error fetching comments:", err);
+      } finally {
+        setLoadingComments(false);
+      }
+    },
+    [videoId, nextCursor, hasMore, loadingComments]
+  );
+
+  // Initialize Comments on Video ID change
+  useEffect(() => {
+    if (videoId) {
+      setComments([]);
+      setNextCursor(null);
+      setHasMore(true);
+      viewRecordedRef.current = false;
+      fetchComments(true);
+    }
+  }, [videoId]);
+
+  // Infinite Scroll Observer Setup
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingComments) {
+          fetchComments(false);
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) observer.observe(currentTarget);
+
+    return () => {
+      if (currentTarget) observer.unobserve(currentTarget);
+    };
+  }, [fetchComments, hasMore, loadingComments]);
+
+  // Spatial color sampler
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
@@ -176,22 +448,12 @@ export default function WatchPage() {
 
       try {
         ctx.drawImage(videoEl, 0, 0, 12, 12);
-
-        // Region 1: Top-Left (6x6)
         const color1 = getRegionAvg(0, 0, 6, 6);
-        // Region 2: Top-Right / Center (6x6)
         const color2 = getRegionAvg(6, 0, 6, 6);
-        // Region 3: Bottom Center (6x6)
         const color3 = getRegionAvg(3, 6, 6, 6);
 
-        setRealtimeGlowColors({
-          c1: color1,
-          c2: color2,
-          c3: color3,
-        });
-      } catch (e) {
-        // Fallback for potential cross-origin restriction
-      }
+        setRealtimeGlowColors({ c1: color1, c2: color2, c3: color3 });
+      } catch (e) {}
 
       if ("requestVideoFrameCallback" in videoEl) {
         (videoEl as any).requestVideoFrameCallback(processFrame);
@@ -213,21 +475,43 @@ export default function WatchPage() {
     };
   }, [loading]);
 
+  const fetchChannelInfo = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/user/${userId}`, {
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.user) {
+        setChannel(data.user);
+        setSubCount(data.user.sub_count || 0);
+      }
+    } catch (err) {
+      console.error("Failed to fetch channel info:", err);
+    }
+  };
+
   const fetchVideo = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/video/info?id=${id}`);
+      const res = await fetch(`/api/video/info?id=${id}`, {
+        headers: getAuthHeader(),
+      });
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(errText || `HTTP ${res.status}`);
       }
-      const data = await res.json();
+      const data: Video = await res.json();
       setVideo(data);
+      setLikesCount(data.likes_count || 0);
+
+      if (data.user_id) {
+        fetchChannelInfo(data.user_id);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load video");
     }
   }, []);
 
-  // Load data when videoId changes
   useEffect(() => {
     if (!videoId) {
       setLoading(false);
@@ -235,10 +519,13 @@ export default function WatchPage() {
     }
     setLoading(true);
     setError(null);
-    Promise.all([fetchVideo(videoId)]).finally(() => setLoading(false));
-  }, [videoId, fetchVideo]);
 
-  // --- Scroll effect for navbar background ---
+    Promise.all([fetchVideo(videoId), fetchUserActivityStatus(videoId)]).finally(
+      () => setLoading(false)
+    );
+  }, [videoId, fetchVideo, fetchUserActivityStatus]);
+
+  // Scroll effect for navbar background
   useEffect(() => {
     const header = document.querySelector("header");
     if (!header) return;
@@ -273,7 +560,6 @@ export default function WatchPage() {
     };
   }, []);
 
-  // ---------- Render states ----------
   if (!videoId) {
     return (
       <div className="min-h-screen bg-canvas-default text-fg-default">
@@ -315,22 +601,22 @@ export default function WatchPage() {
     );
   }
 
-  // -------- Render main content --------
   const videoUrl = `/api/video?id=${video.id}`;
+  const channelName = channel?.display_name || channel?.username || "Unknown Channel";
+
+  // Determine if description toggle should be shown
+  const description = video.description || "No description";
+  const showToggle = description.length >595;
 
   return (
     <div className="min-h-screen bg-canvas-subtle text-fg-default">
-      {/* Navbar with dynamic background */}
       <Navbar bg={navbarBg} />
 
       <main className="pt-[var(--header-height)] mt-2 w-full">
         <div className="mx-auto px-0 py-2 sm:px-2 sm:py-2 lg:px-3">
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Left: video player + info + comments */}
             <div className="w-full lg:w-[70%] min-w-0 relative">
-              {/* Video container with the ref */}
               <div ref={videoContainerRef} className="relative aspect-video">
-                {/* Glow layers */}
                 <div
                   className="absolute inset-0 rounded-xl pointer-events-none glow-effect-2"
                   style={{
@@ -376,7 +662,6 @@ export default function WatchPage() {
                   } as React.CSSProperties}
                 />
 
-                {/* Video player */}
                 <div className="relative z-10 w-full h-full overflow-hidden rounded-none sm:rounded-xl">
                   <video
                     ref={videoRef}
@@ -385,6 +670,7 @@ export default function WatchPage() {
                     playsInline
                     preload="metadata"
                     crossOrigin="anonymous"
+                    onPlay={handleRecordView}
                     className="block w-full h-full object-contain bg-black"
                   />
                 </div>
@@ -392,40 +678,96 @@ export default function WatchPage() {
 
               {/* Video Info */}
               <div className="mt-1 py-2 px-3 sm:px-0">
-                <h1 className="text-xl font-semibold text-fg-default leading-tight">
+                <h1 className="line-clamp-2 text-xl font-semibold text-fg-default leading-tight">
                   {video.title}
                 </h1>
 
-                {/* Channel row */}
                 <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-accent-muted flex items-center justify-center text-accent-fg font-bold text-sm">
-                      {String(video.user_id || "").charAt(0).toUpperCase() || "U"}
-                    </div>
+                    <Link href={`/user/${video.user_id}`}>
+                      {channel?.avatar_path ? (
+                        <img
+                          src={AVATAR_API + channel.avatar_path}
+                          alt={channelName}
+                          className="avatar avatar-sm md:w-[38px] md:h-[38px] object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-accent-muted flex items-center justify-center text-accent-fg font-bold text-sm">
+                          {channelName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </Link>
                     <div>
-                      <p className="font-medium text-fg-default">Hridoy Hosen</p>
-                      <p className="text-xs text-fg-muted">
-                        15k subscribers
+                      <Link href={`/user/${video.user_id}`} className="no-underline">
+                        <span className="text-fg-default text-base md:text-xl">{channelName}</span>
+                        {channel?.is_verified === 1 && (
+                          <svg
+                            className="w-4 h-4 text-accent inline-block ml-1"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                          </svg>
+                        )}
+                      </Link>
+                      <p className="text-xs md:text-sm text-fg-muted">
+                        {formatSubCount(subCount)}
                       </p>
                     </div>
-                    <button className="btn btn-primary" style={{ borderRadius: "50px" }}>
-                      Subscribe
-                    </button>
+
+                    {/* Hide Subscribe Button on User's Own Channel */}
+                    {!isOwnChannel && (
+                      <button
+                        onClick={handleToggleSubscribe}
+                        disabled={isSubscribing}
+                        className={`btn ${isSubscribed ? "btn-secondary" : "btn-primary"}`}
+                        style={{ borderRadius: "50px" }}
+                      >
+                        {isSubscribing
+                          ? "Subscribing..."
+                          : isSubscribed
+                          ? "Subscribed"
+                          : "Subscribe"}
+                      </button>
+                    )}
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-1">
-                    <button className="btn btn-secondary btn-is" style={{ borderRadius: "50px" }}>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 -960 960 960"
-                        fill="currentColor"
-                      >
-                        <path d="M720-120H280v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h258q32 0 56 24t24 56v80q0 7-2 15t-4 15L794-168q-9 20-30 34t-44 14Zm-360-80h360l120-280v-80H480l54-220-174 174v406Zm0-406v406-406Zm-80-34v80H160v360h120v80H80v-520h200Z" />
-                      </svg>
-                      <span>{video.likes_count || 0}</span>
+                    <button
+                      onClick={handleToggleLike}
+                      disabled={isLiking}
+                      className={`btn btn-secondary btn-is ${isLiked ? "text-accent" : ""}`}
+                      style={{ borderRadius: "50px" }}
+                    >
+                      {isLiking ? (
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                        </svg>
+                      ) : isLiked ? (
+                          <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 -960 960 960"
+                          fill="currentColor"
+                        >
+                          <path d="M720-120H280v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h258q32 0 56 24t24 56v80q0 7-2 15t-4 15L794-168q-9 20-30 34t-44 14ZM200-120H80v-520h120v520Z" />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 -960 960 960"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="50"
+                        >
+                          <path d="M720-120H280v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h258q32 0 56 24t24 56v80q0 7-2 15t-4 15L794-168q-9 20-30 34t-44 14Zm-360-80h360l120-280v-80H480l54-220-174 174v406Zm0-406v406-406Zm-80-34v80H160v360h120v80H80v-520h200Z" />
+                        </svg>
+                      )}
+                      <span>{likesCount}</span>
                     </button>
                     <button className="btn btn-secondary btn-is" style={{ borderRadius: "50px" }}>
                       <svg
@@ -441,77 +783,121 @@ export default function WatchPage() {
                     </button>
                   </div>
                 </div>
-
-                {/* Description */}
-                <div className="mt-4 p-3 rounded-xl bg-canvas-subtle text-fg-default text-sm bg-canvas-elevated">
-                  <p className="whitespace-pre-wrap">
-                    <span>{video.views_count | 0} views ○ {timeAgo(video.created_at)} </span>{" "}
-                    <span className="text-fg-muted">{video.description || "No description"}</span>
-                  </p>
+                {/* Description with inline views/date and toggle */}
+                <div className="mt-4 p-3 rounded-xl bg-canvas-subtle text-sm bg-canvas-elevated">
+                  <div className="whitespace-pre-wrap text-fg-muted">
+                    <span className="text-fg-default">
+                      {formatviews_count(video.views_count || 0)} ○ {timeAgo(video.created_at)}
+                      {description ? ' ' : ''}
+                    </span>
+                    <span>  </span>
+                    {showToggle ? (
+                      <>
+                        {isDescriptionExpanded
+                          ? description
+                          : description.slice(0, 595)}
+                        <button
+                          onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                          className="seeMore text-fg-default hover:text-fg-muted"
+                        >
+                          {isDescriptionExpanded ? "  « See less" : ".....  See more »"}
+                        </button>
+                      </>
+                    ) : (
+                      description
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Comments Section */}
+              {/* Real Comments Section */}
               <div className="py-2 border-t border-border-subtle pt-6 px-3 sm:px-0">
-                <h2 className="text-lg font-semibold text-fg-default mb-4">Comments</h2>
+                <h2 className="text-lg font-semibold text-fg-default mb-4">
+                  Comments {comments.length > 0 && `(${comments.length})`}
+                </h2>
 
                 <div className="flex items-end gap-3 mb-6 mt-4">
                   <textarea
                     className="add-comment-textarea text-base md:text-[1.2rem]"
                     rows={1}
                     placeholder="Add a comment..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    value={commentInput}
+                    onChange={(e) => setCommentInput(e.target.value)}
                   />
                   {hasText && (
                     <button
-                      onClick={() => {}}
+                      onClick={handleAddComment}
+                      disabled={submittingComment}
                       className="btn btn-primary"
                       style={{ borderRadius: "50px" }}
                     >
-                      Comment
+                      {submittingComment ? "Posting..." : "Comment"}
                     </button>
                   )}
                 </div>
 
                 <div className="space-y-4 flex flex-col gap-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex gap-3">
-                      <div className="w-10 h-10 rounded-full bg-success-subtle text-success-fg flex items-center justify-center font-bold text-sm flex-shrink-0">
-                        A
-                      </div>
+                  {comments.map((item) => (
+                    <div key={item.id} className="flex gap-3">
+                      {item.user?.avatar_path ? (
+                        <img
+                          src={AVATAR_API + item.user.avatar_path}
+                          alt={item.user.display_name || item.user.username}
+                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-accent-muted text-accent-fg flex items-center justify-center font-bold text-sm flex-shrink-0">
+                          {(item.user?.display_name || item.user?.username || "A")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+                      )}
+
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-fg-default">alex</span>
-                          <span className="text-xs text-fg-muted">3 min ago</span>
+                          <span className="font-semibold text-sm text-fg-default">
+                            {item.user?.display_name || item.user?.username || "Anonymous"}
+                          </span>
+                          <span className="text-xs text-fg-muted">
+                            {timeAgo(item.created_at)}
+                          </span>
                         </div>
-                        <p className="text-sm text-fg-default mt-0.5 leading-snug">
-                          This is a great update! When will the new API docs be published?
+                        <p className="text-sm text-fg-default mt-0.5 leading-snug whitespace-pre-wrap">
+                          {item.comment}
                         </p>
 
                         <div className="mt-1 flex items-center gap-4">
-                          <div className="flex items-center">
-                            <button
-                              className="btn btn-ghost flex items-center"
-                              style={{ padding: 0, paddingRight: "5px" }}
+                          <button className="btn btn-ghost flex items-center gap-1 p-0 pr-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 -960 960 960"
+                              fill="currentColor"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
-                                viewBox="0 -960 960 960"
-                                fill="currentColor"
-                              >
-                                <path d="M720-120H280v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h258q32 0 56 24t24 56v80q0 7-2 15t-4 15L794-168q-9 20-30 34t-44 14Zm-360-80h360l120-280v-80H480l54-220-174 174v406Zm0-406v406-406Zm-80-34v80H160v360h120v80H80v-520h200Z" />
-                              </svg>
-                            </button>
-                            <span className="text-sm text-fg-muted">15k</span>
-                          </div>
-                          <button className="btn btn-ghost">Reply</button>
+                              <path d="M720-120H280v-520l280-280 50 50q7 7 11.5 19t4.5 23v14l-44 174h258q32 0 56 24t24 56v80q0 7-2 15t-4 15L794-168q-9 20-30 34t-44 14Zm-360-80h360l120-280v-80H480l54-220-174 174v406Zm0-406v406-406Zm-80-34v80H160v360h120v80H80v-520h200Z" />
+                            </svg>
+                          </button>
+                          <button className="btn btn-ghost text-xs">Reply</button>
                         </div>
                       </div>
                     </div>
                   ))}
+
+                  {!loadingComments && comments.length === 0 && (
+                    <p className="text-fg-muted text-sm my-4">
+                      No comments yet. Be the first to comment!
+                    </p>
+                  )}
+
+                  <div ref={observerTarget} className="py-4 text-center">
+                    {loadingComments && (
+                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
+                    )}
+                    {!hasMore && comments.length > 0 && (
+                      <p className="text-xs text-fg-muted mt-2">No more comments to show.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

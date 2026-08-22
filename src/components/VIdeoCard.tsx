@@ -84,12 +84,11 @@ export default function VideoCard({
       {/* Channel avatar */}
         <div className="flex gap-2 items-center min-w-0">
         <div className="flex-shrink-0 mt-0.5">
-          <div className="avatar">
-            <Image
+          <div>
+            <img
               src={avatar}
               alt={channelName}
-              fill
-              className="object-cover"
+              className="avatar avatar-sm"
             />
           </div>
         </div>
