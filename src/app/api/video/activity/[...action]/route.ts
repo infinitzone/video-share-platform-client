@@ -10,7 +10,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const authHeader = request.headers.get("authorization");
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:4444";
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE;
     
     const response = await fetch(`${backendUrl}/video/activity/${actionPath}`, {
       method: "POST",
@@ -42,7 +42,7 @@ export async function DELETE(
     const body = await request.json().catch(() => ({}));
     const authHeader = request.headers.get("authorization");
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:4444";
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE;
 
     const response = await fetch(`${backendUrl}/video/activity/${actionPath}`, {
       method: "DELETE",
@@ -75,7 +75,7 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams;
     const authHeader = request.headers.get("authorization");
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:4444";
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE;
 
     const url = `${backendUrl}/video/activity/${actionPath}?${searchParams.toString()}`;
 

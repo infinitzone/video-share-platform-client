@@ -16,7 +16,7 @@ export async function GET(
       );
     }
 
-    const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:4444";
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE;
     const response = await fetch(`${backendUrl}/user/${userId}`, {
       method: "GET",
       headers: {

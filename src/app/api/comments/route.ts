@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:4444";
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE;
     const targetUrl = new URL(`${backendUrl}/video/comments`);
     targetUrl.searchParams.set("video_id", videoId);
     targetUrl.searchParams.set("limit", limit);

@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing video id', { status: 400 });
   }
 
-  const VIDEO_API = process.env.VIDEO_API || 'http://localhost:4444';
+  const VIDEO_API = process.env.NEXT_PUBLIC_VIDEO_API;
   const url = `${VIDEO_API}/watch/${id}`;
 
   try {

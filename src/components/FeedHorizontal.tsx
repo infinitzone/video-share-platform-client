@@ -58,8 +58,12 @@ function formatDuration(seconds: number): string {
 }
 
 function getThumbnailUrl(path: string): string {
-  if (!path) return "/placeholder-thumbnail.jpg";
-  if (path.startsWith("http")) return path;
+  if (!path) return "/image-placeholder.png";
+  return `/api/thumbnail?path=${encodeURIComponent(path)}`;
+}
+
+function getAvatarUrl(path: string | null | undefined): string {
+  if (!path) return "/avatar-placeholder.png";
   return `/api/thumbnail?path=${encodeURIComponent(path)}`;
 }
 
@@ -166,7 +170,7 @@ export default function FeedHorizontal() {
                     video.channel?.username ||
                     `User ${video.user_id}`
                   }
-                  avatar={video.channel?.avatar_path || "/placeholder-avatar.png"}
+                  avatar={getAvatarUrl(video.channel?.avatar_path)}
                   isVerified={video.channel?.is_verified ?? false}
                   views_count={formatviews_count(video.views_count)}
                   published={timeAgo(video.created_at)}

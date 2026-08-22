@@ -6,9 +6,10 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import FeedHorizontal from "@/components/FeedHorizontal";
 import { auth } from "@/lib/auth";
+import { getAvatarUrl, getThumbnailUrl } from "@/utils/media";
 
 // Blob serve api
-const AVATAR_API = process.env.AVATAR_API || "http://localhost";
+const AVATAR_API = process.env.NEXT_PUBLIC_AVATAR_API;
 
 // ---------- Helpers ----------
 function formatSubCount(subCount: number): string {
@@ -178,12 +179,6 @@ export default function WatchPage() {
 
   const [commentInput, setCommentInput] = useState("");
   const hasText = commentInput.trim().length > 0;
-
-  const getThumbnailUrl = (path: string): string => {
-    if (!path) return "/placeholder-thumbnail.jpg";
-    if (path.startsWith("http")) return path;
-    return `/api/thumbnail?path=${encodeURIComponent(path)}`;
-  };
 
   const getAuthHeader = (): Record<string, string> => {
     const token = auth.getToken();
@@ -612,13 +607,13 @@ export default function WatchPage() {
     <div className="min-h-screen bg-canvas-subtle text-fg-default">
       <Navbar bg={navbarBg} />
 
-      <main className="pt-[var(--header-height)] mt-2 w-full">
+      <main className="pt-[var(--header-height)] md:mt-2 w-full overflow-hidden">
         <div className="mx-auto px-0 py-2 sm:px-2 sm:py-2 lg:px-3">
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="w-full lg:w-[70%] min-w-0 relative">
               <div ref={videoContainerRef} className="relative aspect-video">
                 <div
-                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-2"
+                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-2 hidden md:block"
                   style={{
                     "--glow-color": realtimeGlowColors.c1,
                     "--glow-color-2": realtimeGlowColors.c2,
@@ -626,7 +621,7 @@ export default function WatchPage() {
                   } as React.CSSProperties}
                 />
                 <div
-                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-3"
+                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-3 hidden md:block"
                   style={{
                     "--glow-color": realtimeGlowColors.c1,
                     "--glow-color-2": realtimeGlowColors.c2,
@@ -646,7 +641,7 @@ export default function WatchPage() {
                   } as React.CSSProperties}
                 />
                 <div
-                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-6"
+                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-6 hidden md:block"
                   style={{
                     "--glow-color": realtimeGlowColors.c1,
                     "--glow-color-2": realtimeGlowColors.c2,
@@ -654,7 +649,7 @@ export default function WatchPage() {
                   } as React.CSSProperties}
                 />
                 <div
-                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-7"
+                  className="absolute inset-0 rounded-xl pointer-events-none glow-effect-7 hidden md:block"
                   style={{
                     "--glow-color": realtimeGlowColors.c1,
                     "--glow-color-2": realtimeGlowColors.c2,
@@ -687,7 +682,7 @@ export default function WatchPage() {
                     <Link href={`/${channel?.username}`}>
                       {channel?.avatar_path ? (
                         <img
-                          src={AVATAR_API + channel.avatar_path}
+                          src={getAvatarUrl(channel?.avatar_path)}
                           alt={channelName}
                           className="avatar avatar-sm md:w-[38px] md:h-[38px] object-cover"
                         />
@@ -779,7 +774,7 @@ export default function WatchPage() {
                       >
                         <path d="M720-80q-50 0-85-35t-35-85q0-13 3-25t9-23L350-380q-14 14-32 22t-38 8q-50 0-85-35t-35-85q0-50 35-85t85-35q20 0 38 8t32 22l262-162q-6-11-9-23t-3-25q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35q-20 0-38-8t-32-22L350-580q6 11 9 23t3 25q0 13-3 25t-9 23l262 162q14-14 32-22t38-8q50 0 85 35t35 85q0 50-35 85t-85 35Zm0-560q17 0 28.5-11.5T760-680q0-17-11.5-28.5T720-720q-17 0-28.5 11.5T680-680q0 17 11.5 28.5T720-640ZM240-440q17 0 28.5-11.5T280-480q0-17-11.5-28.5T240-520q-17 0-28.5 11.5T200-480q0 17 11.5 28.5T240-440Zm480 280q17 0 28.5-11.5T760-200q0-17-11.5-28.5T720-240q-17 0-28.5 11.5T680-200q0 17 11.5 28.5T720-160Z" />
                       </svg>
-                      <span>Share</span>
+                      <span className="hidden md:block">Share</span>
                     </button>
                   </div>
                 </div>
@@ -839,19 +834,12 @@ export default function WatchPage() {
                 <div className="space-y-4 flex flex-col gap-4">
                   {comments.map((item) => (
                     <div key={item.id} className="flex gap-3">
-                      {item.user?.avatar_path ? (
-                        <img
-                          src={AVATAR_API + item.user.avatar_path}
-                          alt={item.user.display_name || item.user.username}
-                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-accent-muted text-accent-fg flex items-center justify-center font-bold text-sm flex-shrink-0">
-                          {(item.user?.display_name || item.user?.username || "A")
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
-                      )}
+                      <img
+                        src={item.user.avatar_path? getAvatarUrl(item.user.avatar_path) : "/avatar-placeholder.png"}
+                        alt={item.user.display_name || item.user.username}
+                        className="avatar avatar-sm md:w-[38px] md:h-[38px] object-cover"
+                      />
+                      
 
                       <div className="flex-1">
                         <div className="flex items-center gap-2">

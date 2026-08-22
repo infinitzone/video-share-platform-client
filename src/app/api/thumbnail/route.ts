@@ -6,10 +6,8 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing path', { status: 400 });
   }
 
-  // Strip host prefix if full localhost URL was passed in
-  const relativePath = path.replace(/^http:\/\/localhost(:\d+)?/, '');
-  const baseUrl = (process.env.THUMBNAIL_API || 'http://localhost').replace(/\/$/, '');
-  const url = `${baseUrl}${relativePath.startsWith('/') ? '' : '/'}${relativePath}`;
+  const baseUrl = process.env.NEXT_PUBLIC_THUMBNAIL_API;
+  const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
 
   try {
     const response = await fetch(url);

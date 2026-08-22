@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing video id', { status: 400 });
   }
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4444';
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
   // Fetch feed to find the video by id (adjust if you have a dedicated /video/:id endpoint)
   const feedUrl = `${API_BASE}/video/fetch/feed?limit=100`;
 

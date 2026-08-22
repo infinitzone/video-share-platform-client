@@ -2,9 +2,6 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 
-// Blob serve api
-const AVATAR_API = process.env.AVATAR_API || "http://localhost";
-
 type VideoCardProps = {
   thumbnail: string;
   title: string;
@@ -68,7 +65,7 @@ export default function VideoCardHorizontal({
       {/* Thumbnail: Retained exact original w-[310px] min-w-[168px] aspect-video styling */}
       <div className="relative w-full lg:w-[310px] min-w-[168px] flex-shrink-0 aspect-video rounded-xl overflow-hidden bg-canvas-subtle z-10 horizontal-video-card-thumbnail-full">
         <Image
-          src={thumbnail}
+          src={thumbnail? thumbnail : "/image-placeholder.png"}
           alt={title}
           fill
           className="object-cover"
@@ -92,7 +89,7 @@ export default function VideoCardHorizontal({
           </p>
           <div className="flex items-center gap-2 mt-2">
             <div className="avatar avatar-sm">
-              <img src={AVATAR_API+avatar} alt={channelName} className="avatar avatar-sm" />
+              <img src={avatar? avatar : "/avatar-placeholder.png"} alt={channelName} className="avatar avatar-sm" />
             </div>
             <p className="text-[12px] text-fg-muted truncate hover:text-fg-default transition-colors">
               {channelName}

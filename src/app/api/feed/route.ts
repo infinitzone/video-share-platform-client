@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '20', 10);
   const cursor = searchParams.get('cursor') || '';
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4444';
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
   // Build the URL for the real backend
   const url = new URL(`${API_BASE}/video/fetch/feed`);

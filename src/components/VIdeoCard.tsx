@@ -62,7 +62,7 @@ export default function VideoCard({
       {/* Thumbnail */}
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-canvas-subtle z-10">
         <Image
-          src={thumbnail}
+          src={thumbnail? thumbnail : "/image-placeholder.png"}
           alt={title}
           fill
           unoptimized
@@ -86,7 +86,7 @@ export default function VideoCard({
         <div className="flex-shrink-0 mt-0.5">
           <div>
             <img
-              src={avatar}
+              src={avatar? avatar : "/avatar-placeholder.png"}
               alt={channelName}
               className="avatar avatar-sm"
             />

@@ -57,21 +57,12 @@ function formatDuration(seconds: number): string {
 }
 
 function getThumbnailUrl(path: string): string {
-  if (!path) return "/placeholder-thumbnail.jpg";
-  
-  if (path.startsWith("http://localhost")) {
-    const relativePath = path.replace(/^http:\/\/localhost(:\d+)?/, "");
-    return `/api/thumbnail?path=${encodeURIComponent(relativePath)}`;
-  }
-
-  if (path.startsWith("http")) return path;
-  
+  if (!path) return "/image-placeholder.png";
   return `/api/thumbnail?path=${encodeURIComponent(path)}`;
 }
 
 function getAvatarUrl(path: string | null | undefined): string {
-  if (!path) return "/placeholder-avatar.png";
-  if (path.startsWith("http")) return path;
+  if (!path) return "/avatar-placeholder.png";
   return `/api/thumbnail?path=${encodeURIComponent(path)}`;
 }
 

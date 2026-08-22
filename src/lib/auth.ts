@@ -1,5 +1,3 @@
-// lib/auth.ts
-
 interface User {
   id: number;
   username: string;
