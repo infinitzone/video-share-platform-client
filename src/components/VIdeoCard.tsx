@@ -94,7 +94,7 @@ export default function VideoCard({
         </div>
         {/* Channel text details */}
         <div className="">
-          <p className="text-sm text-fg-muted hover:text-fg-default transition-colors flex items-center gap-1 mt-1">
+          <p className="text-sm text-fg-muted transition-colors flex items-center gap-1 mt-1">
             <span className="truncate">{channelName}</span>
             {isVerified && (
               <svg

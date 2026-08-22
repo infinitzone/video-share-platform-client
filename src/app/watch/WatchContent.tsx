@@ -684,7 +684,7 @@ export default function WatchPage() {
 
                 <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
                   <div className="flex items-center gap-3">
-                    <Link href={`/user/${video.user_id}`}>
+                    <Link href={`/${channel?.username}`}>
                       {channel?.avatar_path ? (
                         <img
                           src={AVATAR_API + channel.avatar_path}
@@ -698,7 +698,7 @@ export default function WatchPage() {
                       )}
                     </Link>
                     <div>
-                      <Link href={`/user/${video.user_id}`} className="no-underline">
+                      <Link href={`/${channel?.username}`} className="no-underline">
                         <span className="text-fg-default text-base md:text-xl">{channelName}</span>
                         {channel?.is_verified === 1 && (
                           <svg
